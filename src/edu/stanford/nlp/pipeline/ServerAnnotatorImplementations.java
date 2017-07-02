@@ -1,10 +1,7 @@
 package edu.stanford.nlp.pipeline;
 
 import edu.stanford.nlp.ling.CoreAnnotation;
-// import org.slf4j.Logger;
-// import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -14,12 +11,6 @@ import java.util.*;
  * @author <a href="mailto:gabor@eloquent.ai">Gabor Angeli</a>
  */
 public class ServerAnnotatorImplementations extends AnnotatorImplementations {
-
-  /*
-   * An SLF4J Logger for this class.
-   */
-  // private static final Logger log = LoggerFactory.getLogger(ServerAnnotatorImplementations.class);
-
 
   /**
    * The hostname of the server to hit
@@ -75,12 +66,10 @@ public class ServerAnnotatorImplementations extends AnnotatorImplementations {
   private class SingletonAnnotator implements Annotator {
 
     private final StanfordCoreNLPClient client;
-    private final String annotator;
 
     public SingletonAnnotator(String host, int port,
                               Properties properties,
                               String annotator) {
-      this.annotator = annotator;
       Properties forClient = new Properties();
       for (Object o : properties.keySet()) {
         String key = o.toString();
@@ -127,7 +116,7 @@ public class ServerAnnotatorImplementations extends AnnotatorImplementations {
 
   /** {@inheritDoc} */
   @Override
-  public Annotator ner(Properties properties) throws IOException {
+  public Annotator ner(Properties properties) {
     return new SingletonAnnotator(host, port, properties, Annotator.STANFORD_NER);
   }
 

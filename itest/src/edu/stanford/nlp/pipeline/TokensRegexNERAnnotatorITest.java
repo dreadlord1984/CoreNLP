@@ -13,10 +13,12 @@ import java.util.List;
 import java.util.Properties;
 
 /**
- * Test cases for TokensRegexNERAnnotator (taken from RegexNERAnnotator)
+ * Test cases for TokensRegexNERAnnotator (taken from RegexNERAnnotator).
+ *
  * @author Angel Chang
  */
 public class TokensRegexNERAnnotatorITest extends TestCase {
+
   private static final String REGEX_ANNOTATOR_NAME = "tokensregexner";
   private static final String MAPPING = "/u/nlp/data/TAC-KBP2010/sentence_extraction/itest_map";
 
@@ -27,6 +29,7 @@ public class TokensRegexNERAnnotatorITest extends TestCase {
 
   @Override
   public void setUp() throws Exception {
+    super.setUp();
     synchronized(TokensRegexNERAnnotatorITest.class) {
       if (pipeline == null) {  // Hack so we don't load the pipeline fresh for every test
         Properties props = new Properties();
@@ -41,18 +44,16 @@ public class TokensRegexNERAnnotatorITest extends TestCase {
   }
 
   // Helper methods
-  protected static TokensRegexNERAnnotator getTokensRegexNerAnnotator(Properties props)
-  {
+  protected static TokensRegexNERAnnotator getTokensRegexNerAnnotator(Properties props) {
     return new TokensRegexNERAnnotator(REGEX_ANNOTATOR_NAME, props);
   }
 
-  protected static TokensRegexNERAnnotator getTokensRegexNerAnnotator(String[][] patterns, boolean ignoreCase) throws Exception
-  {
+  protected static TokensRegexNERAnnotator getTokensRegexNerAnnotator(String[][] patterns, boolean ignoreCase) throws Exception {
     return getTokensRegexNerAnnotator(new Properties(), patterns, ignoreCase);
   }
 
-  protected static TokensRegexNERAnnotator getTokensRegexNerAnnotator(Properties props, String[][] patterns, boolean ignoreCase) throws Exception
-  {
+  protected static TokensRegexNERAnnotator getTokensRegexNerAnnotator(Properties props, String[][] patterns, boolean ignoreCase)
+          throws Exception {
     File tempFile = File.createTempFile("tokensregexnertest.patterns", "txt");
     tempFile.deleteOnExit();
     PrintWriter pw = IOUtils.getPrintWriter(tempFile.getAbsolutePath());
@@ -77,7 +78,7 @@ public class TokensRegexNERAnnotatorITest extends TestCase {
   private static void checkNerTags(List<CoreLabel> tokens, String... tags) {
     assertEquals(tags.length, tokens.size());
     for (int i = 0; i < tags.length; ++i) {
-      assertEquals("Mismatch for token tag NER " + i + " " + tokens.get(i),
+      assertEquals("Mismatch for token tag NER " + i + ' ' + tokens.get(i),
                    tags[i], tokens.get(i).get(CoreAnnotations.NamedEntityTagAnnotation.class));
     }
   }
@@ -85,7 +86,7 @@ public class TokensRegexNERAnnotatorITest extends TestCase {
   private static void checkTags(List<CoreLabel> tokens, Class key, String... tags) {
     assertEquals(tags.length, tokens.size());
     for (int i = 0; i < tags.length; ++i) {
-      assertEquals("Mismatch for token tag " + key + " " + i + " " + tokens.get(i),
+      assertEquals("Mismatch for token tag " + key + ' ' + i + ' ' + tokens.get(i),
         tags[i], tokens.get(i).get(key));
     }
   }
@@ -183,6 +184,7 @@ public class TokensRegexNERAnnotatorITest extends TestCase {
   }
 
   public static class TestAnnotation implements CoreAnnotation<String> {
+    @Override
     public Class<String> getType() {
       return String.class;
     }
@@ -224,17 +226,18 @@ public class TokensRegexNERAnnotatorITest extends TestCase {
   }
 
   /**
-   * The LOCATION on Ontario Lake should not be overwritten since Ontario (STATE_OR_PROVINCE)
-   * does not span Ontario Lake.  Native American Church will overwrite ORGANIZATION with
+   * The ORGANIZATION on Ontario Bank should not ve overrwritten since Ontario (STATE_OR_PROVINCE)
+   * does not span Ontario Bank. Nevertheless, by the special Chinese KBP 2016 hack, the LOCATION on Ontario Lake
+   * should be overwritten.  Native American Church will overwrite ORGANIZATION with
    * RELIGION.
    */
   public void testOverwrite() throws Exception {
-    String str = "I like Ontario Lake , and I like the Native American Church , too .";
+    String str = "I like Ontario Bank and Ontario Lake , and I like the Native American Church , too .";
     Annotation document = createDocument(str);
     annotator.annotate(document);
     List<CoreLabel> tokens = document.get(CoreAnnotations.TokensAnnotation.class);
 
-    checkNerTags(tokens, "O", "O", "LOCATION", "LOCATION", "O", "O", "O", "O", "O", "RELIGION",
+    checkNerTags(tokens, "O", "O", "ORGANIZATION", "ORGANIZATION", "O", "STATE_OR_PROVINCE", "LOCATION", "O", "O", "O", "O", "O", "RELIGION",
       "RELIGION", "RELIGION", "O", "O", "O");
 
   }

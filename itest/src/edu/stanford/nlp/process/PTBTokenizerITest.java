@@ -19,8 +19,8 @@ public class PTBTokenizerITest extends TestCase {
   private static void compareResults(BufferedReader testReader,
                              List<String> goldResults) {
     PTBTokenizer<CoreLabel> tokenizer =
-      new PTBTokenizer<CoreLabel>(testReader, new CoreLabelTokenFactory(), "");
-    List<String> testResults = new ArrayList<String>();
+            new PTBTokenizer<>(testReader, new CoreLabelTokenFactory(), "");
+    List<String> testResults = new ArrayList<>();
     while (tokenizer.hasNext()) {
       CoreLabel w = tokenizer.next();
       testResults.add(w.word());
@@ -39,9 +39,7 @@ public class PTBTokenizerITest extends TestCase {
     final String charset = "utf-8";
     BufferedReader reader;
     try {
-      reader = new BufferedReader
-      (new InputStreamReader
-       (PTBTokenizerITest.class.getResourceAsStream(filename), charset));
+      reader = new BufferedReader(new InputStreamReader(PTBTokenizerITest.class.getResourceAsStream(filename), charset));
     } catch (NullPointerException npe) {
       Map<String,String> env = System.getenv();
       String path = "projects/core/data/edu/stanford/nlp/process" + File.separator + filename;
@@ -58,7 +56,7 @@ public class PTBTokenizerITest extends TestCase {
     throws IOException
   {
     BufferedReader goldReader = getReaderFromInJavaNlp("ptblexer.gold");
-    List<String> goldResults = new ArrayList<String>();
+    List<String> goldResults = new ArrayList<>();
     for (String line; (line = goldReader.readLine()) != null; ) {
       goldResults.add(line.trim());
     }

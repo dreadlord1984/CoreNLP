@@ -1,5 +1,4 @@
-package edu.stanford.nlp.util; 
-import edu.stanford.nlp.util.logging.Redwood;
+package edu.stanford.nlp.util;
 
 import java.io.*;
 import java.util.*;
@@ -23,6 +22,8 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import edu.stanford.nlp.io.IOUtils;
+import edu.stanford.nlp.util.logging.Redwood;
+
 
 /**
  * Provides some utilities for dealing with XML files, both by properly
@@ -63,8 +64,8 @@ public class XMLUtils  {
    * @throws SAXException if tag doesn't exist in the file.
    * @return List of String text contents of tags.
    */
-  public static List<String> getTextContentFromTagsFromFileSAXException(
-      File f, String tag) throws SAXException {
+  private static List<String> getTextContentFromTagsFromFileSAXException(
+          File f, String tag) throws SAXException {
     List<String> sents = Generics.newArrayList();
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -124,8 +125,8 @@ public class XMLUtils  {
    * @throws SAXException if tag doesn't exist in the file.
    * @return List of String text contents of tags.
    */
-  public static List<Element> getTagElementsFromFileSAXException(
-      File f, String tag) throws SAXException {
+  private static List<Element> getTagElementsFromFileSAXException(
+          File f, String tag) throws SAXException {
     List<Element> sents = Generics.newArrayList();
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -139,9 +140,7 @@ public class XMLUtils  {
         Element element = (Element)nodeList.item(i);
         sents.add(element);
       }
-    } catch (IOException e) {
-      log.info(e);
-    } catch (ParserConfigurationException e) {
+    } catch (IOException | ParserConfigurationException e) {
       log.info(e);
     }
     return sents;
@@ -151,7 +150,7 @@ public class XMLUtils  {
    * Returns the elements in the given file with the given tag associated with
    * the text content of the two previous siblings and two next siblings.
    *
-   * @return List of Triple<String, Element, String> Targeted elements surrounded
+   * @return List of {@code Triple<String, Element, String>} Targeted elements surrounded
    * by the text content of the two previous siblings and two next siblings.
    */
   public static List<Triple<String, Element, String>> getTagElementTriplesFromFile(File f, String tag) {
@@ -166,14 +165,46 @@ public class XMLUtils  {
 
   /**
    * Returns the elements in the given file with the given tag associated with
+   * the text content of the previous and next siblings up to max numIncludedSiblings.
+   *
+   * @return List of Triple<String, Element, String> Targeted elements surrounded
+   * by the text content of the two previous siblings and two next siblings.
+   */
+  public static List<Triple<String, Element, String>> getTagElementTriplesFromFileNumBounded(File f,
+                                                                                             String tag,
+                                                                                             int num) {
+    List<Triple<String, Element, String>> sents = Generics.newArrayList();
+    try {
+      sents = getTagElementTriplesFromFileNumBoundedSAXException(f, tag, num);
+    } catch (SAXException e) {
+      System.err.println(e);
+    }
+    return sents;
+  }
+
+  /**
+   * Returns the elements in the given file with the given tag associated with
    * the text content of the two previous siblings and two next siblings.
+   *
+   * @throws SAXException if tag doesn't exist in the file.
+   * @return List of {@code Triple<String, Element, String>} Targeted elements surrounded
+   * by the text content of the two previous siblings and two next siblings.
+   */
+  public static List<Triple<String, Element, String>> getTagElementTriplesFromFileSAXException(
+      File f, String tag) throws SAXException {
+    return  getTagElementTriplesFromFileNumBoundedSAXException(f, tag, 2);
+  }
+
+  /**
+   * Returns the elements in the given file with the given tag associated with
+   * the text content of the previous and next siblings up to max numIncludedSiblings.
    *
    * @throws SAXException if tag doesn't exist in the file.
    * @return List of Triple<String, Element, String> Targeted elements surrounded
    * by the text content of the two previous siblings and two next siblings.
    */
-  public static List<Triple<String, Element, String>> getTagElementTriplesFromFileSAXException(
-      File f, String tag) throws SAXException {
+  public static List<Triple<String, Element, String>> getTagElementTriplesFromFileNumBoundedSAXException(
+      File f, String tag, int numIncludedSiblings) throws SAXException {
     List<Triple<String, Element, String>> sents = Generics.newArrayList();
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -186,28 +217,26 @@ public class XMLUtils  {
         // Get element
         Node prevNode = nodeList.item(i).getPreviousSibling();
         String prev = "";
-        if (prevNode != null) {
-          if (prevNode.getPreviousSibling() != null) {
-            prev += prevNode.getPreviousSibling().getTextContent();
-          }
-          prev += prevNode.getTextContent();
+        int count = 0;
+        while (prevNode != null && count <= numIncludedSiblings) {
+          prev = prevNode.getTextContent() + prev;
+          prevNode = prevNode.getPreviousSibling();
+          count++;
         }
 
         Node nextNode = nodeList.item(i).getNextSibling();
         String next = "";
-        if (nextNode != null) {
-          next = nextNode.getTextContent();
-          if (nextNode.getNextSibling() != null) {
-            next += nextNode.getNextSibling().getTextContent();
-          }
+        count = 0;
+        while (nextNode != null && count <= numIncludedSiblings) {
+          next = next + nextNode.getTextContent();
+          nextNode = nextNode.getNextSibling();
+          count++;
         }
         Element element = (Element)nodeList.item(i);
-        Triple t = new Triple(prev, element, next);
+        Triple<String, Element, String> t = new Triple<>(prev, element, next);
         sents.add(t);
       }
-    } catch (IOException e) {
-      System.err.println(e);
-    } catch (ParserConfigurationException e) {
+    } catch (IOException | ParserConfigurationException e) {
       System.err.println(e);
     }
     return sents;
@@ -377,7 +406,7 @@ public class XMLUtils  {
   // "many matchers can share the same pattern"
   // on the Pattern javadoc.  Therefore, this should be
   // safe as a static final variable.
-  static final Pattern xmlEscapingPattern = Pattern.compile("\\&.+?;");
+  private static final Pattern xmlEscapingPattern = Pattern.compile("\\&.+?;");
 
   public static String unescapeStringForXML(String s) {
     StringBuilder result = new StringBuilder();
@@ -1111,6 +1140,18 @@ public class XMLUtils  {
 
     public String toString() {
       return text;
+    }
+
+    /**
+     * Given a list of attributes, return the first one that is non-null
+     */
+    public String getFirstNonNullAttributeFromList(List<String> attributesList) {
+      for (String attribute : attributesList) {
+        if (attributes.get(attribute) != null) {
+          return attributes.get(attribute);
+        }
+      }
+      return null;
     }
   } // end static class XMLTag
 

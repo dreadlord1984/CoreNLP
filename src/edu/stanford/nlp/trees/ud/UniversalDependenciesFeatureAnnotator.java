@@ -1,5 +1,4 @@
 package edu.stanford.nlp.trees.ud;
-import edu.stanford.nlp.util.logging.Redwood;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -28,6 +27,7 @@ import edu.stanford.nlp.trees.UniversalEnglishGrammaticalRelations;
 import edu.stanford.nlp.trees.UniversalPOSMapper;
 import edu.stanford.nlp.trees.tregex.TregexMatcher;
 import edu.stanford.nlp.trees.tregex.TregexPattern;
+import edu.stanford.nlp.util.logging.Redwood;
 
 
 /**
@@ -42,7 +42,7 @@ import edu.stanford.nlp.trees.tregex.TregexPattern;
 public class UniversalDependenciesFeatureAnnotator  {
 
   /** A logger for this class */
-  private static Redwood.RedwoodChannels log = Redwood.channels(UniversalDependenciesFeatureAnnotator.class);
+  private static final Redwood.RedwoodChannels log = Redwood.channels(UniversalDependenciesFeatureAnnotator.class);
 
 
   private static final String FEATURE_MAP_FILE = "edu/stanford/nlp/models/ud/feature_map.txt";
@@ -73,7 +73,7 @@ public class UniversalDependenciesFeatureAnnotator  {
       if (parts[0].equals("*")) {
         posFeatureMap.put(parts[1], CoNLLUUtils.parseFeatures(parts[2]));
       } else {
-        wordPosFeatureMap.put(parts[0] + "_" + parts[1], CoNLLUUtils.parseFeatures(parts[2]));
+        wordPosFeatureMap.put(parts[0] + '_' + parts[1], CoNLLUUtils.parseFeatures(parts[2]));
       }
     }
   }
@@ -81,7 +81,7 @@ public class UniversalDependenciesFeatureAnnotator  {
 
   private HashMap<String,String> getPOSFeatures(String word, String pos) {
     HashMap<String, String> features = new HashMap<>();
-    String wordPos = word.toLowerCase() + "_" + pos;
+    String wordPos = word.toLowerCase() + '_' + pos;
     if (wordPosFeatureMap.containsKey(wordPos)) {
        features.putAll(wordPosFeatureMap.get(wordPos));
     } else if (posFeatureMap.containsKey(pos)) {
@@ -285,12 +285,11 @@ public class UniversalDependenciesFeatureAnnotator  {
     return tb.iterator();
   }
 
-  private static TregexPattern IMPERATIVE_PATTERN = TregexPattern.compile("__ > VB >+(/^[^S]/) S-IMP");
+  private static final TregexPattern IMPERATIVE_PATTERN = TregexPattern.compile("__ > VB >+(/^[^S]/) S-IMP");
 
   /**
    * Returns the indices of all imperative verbs in the
    * tree t.
-   *
    */
   private static Set<Integer> getImperatives(Tree t) {
     Set<Integer> imps = new HashSet<>();
@@ -309,7 +308,7 @@ public class UniversalDependenciesFeatureAnnotator  {
 
 
   /**
-   * Returns true if <code>word</code> has an auxiliary verb attached to it.
+   * Returns true if {@code word} has an auxiliary verb attached to it.
    *
    */
   @SuppressWarnings("unused")
@@ -333,7 +332,7 @@ public class UniversalDependenciesFeatureAnnotator  {
   }
 
   /**
-   * Returns true if <code>word</code> has an infinitival "to" attached to it.
+   * Returns true if {@code word} has an infinitival "to" attached to it.
    */
   @SuppressWarnings("unused")
   private static boolean hasTo(SemanticGraph sg, IndexedWord word) {
@@ -349,10 +348,10 @@ public class UniversalDependenciesFeatureAnnotator  {
     return false;
   }
 
-  private static String BE_REGEX = EnglishPatterns.beAuxiliaryRegex.replace("/", "");
+  private static final String BE_REGEX = EnglishPatterns.beAuxiliaryRegex.replace("/", "");
 
   /**
-   * Returns true if <code>word</code> has an inflection of "be" as an auxiliary.
+   * Returns true if {@code word} has an inflection of "be" as an auxiliary.
    */
   private static boolean hasBeAux(SemanticGraph sg, IndexedWord word) {
 
@@ -425,7 +424,7 @@ public class UniversalDependenciesFeatureAnnotator  {
       t = UniversalPOSMapper.mapTree(t);
       List<Label> uPOSTags = t.preTerminalYield();
       List<IndexedWord> yield = sg.vertexListSorted();
-      int len = yield.size();
+      // int len = yield.size();
       for (IndexedWord word : yield) {
         Label uPOSTag = uPOSTags.get(word.index() - 1);
         word.set(CoreAnnotations.CoarseTagAnnotation.class, uPOSTag.value());
@@ -476,18 +475,17 @@ public class UniversalDependenciesFeatureAnnotator  {
         StringBuilder sentenceSb = new StringBuilder();
         for (IndexedWord word : sg.vertexListSorted()) {
           sentenceSb.append(word.get(CoreAnnotations.TextAnnotation.class));
-          sentenceSb.append(" ");
+          sentenceSb.append(' ');
         }
 
         throw new RuntimeException("CoNLL-U file and tree file are not aligned. \n"
-                + "Sentence: " + sentenceSb.toString() + "\n"
-                + "Tree: " + t.pennString());
+                + "Sentence: " + sentenceSb + '\n'
+                + "Tree: " + ((t == null) ? "null" : t.pennString()));
       }
 
       featureAnnotator.addFeatures(sg, t, true, addUPOS);
 
       System.out.print(depWriter.printSemanticGraph(sg, !escapeParens));
-
     }
   }
 

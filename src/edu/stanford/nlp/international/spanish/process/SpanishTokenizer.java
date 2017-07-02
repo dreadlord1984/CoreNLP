@@ -1,8 +1,11 @@
-package edu.stanford.nlp.international.spanish.process; 
+package edu.stanford.nlp.international.spanish.process;
 import edu.stanford.nlp.util.logging.Redwood;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
@@ -27,7 +30,6 @@ import edu.stanford.nlp.process.Tokenizer;
 import edu.stanford.nlp.util.Generics;
 import edu.stanford.nlp.util.PropertiesUtils;
 import edu.stanford.nlp.util.StringUtils;
-import edu.stanford.nlp.util.Pair;
 import edu.stanford.nlp.international.spanish.SpanishVerbStripper;
 
 /**
@@ -122,12 +124,18 @@ public class SpanishTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
 
 
   /** Copies the CoreLabel cl with the new word part */
-  private static CoreLabel copyCoreLabel(CoreLabel cl, String part) {
+  private static CoreLabel copyCoreLabel(CoreLabel cl, String part, int beginPosition, int endPosition) {
     CoreLabel newLabel = new CoreLabel(cl);
     newLabel.setWord(part);
     newLabel.setValue(part);
+    newLabel.setBeginPosition(beginPosition);
+    newLabel.setEndPosition(endPosition);
     newLabel.set(OriginalTextAnnotation.class, part);
     return newLabel;
+  }
+
+  private static CoreLabel copyCoreLabel(CoreLabel cl, String part, int beginPosition) {
+    return copyCoreLabel(cl, part, beginPosition, beginPosition + part.length());
   }
 
   /**
@@ -143,6 +151,7 @@ public class SpanishTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     String word = cl.word();
     String first;
     String second;
+    int secondOffset = 0, secondLength = 0;
 
     String lowered = word.toLowerCase();
     switch (lowered) {
@@ -153,22 +162,30 @@ public class SpanishTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
         if (Character.isLowerCase(lastChar))
           second = "el";
         else second = "EL";
+        secondOffset = 1;
+        secondLength = lowered.length() - 1;
         break;
       case "conmigo":
       case "consigo":
         first = word.substring(0, 3);
         second = word.charAt(3) + "í";
+        secondOffset = 3;
+        secondLength = 4;
         break;
       case "contigo":
         first = word.substring(0, 3);
         second = word.substring(3, 5);
+        secondOffset = 3;
+        secondLength = 4;
         break;
       default:
         throw new IllegalArgumentException("Invalid contraction provided to processContraction");
     }
 
-    compoundBuffer.add(copyCoreLabel(cl, second));
-    return copyCoreLabel(cl, first);
+    int secondStart = cl.beginPosition() + secondOffset;
+    int secondEnd = secondStart + secondLength;
+    compoundBuffer.add(copyCoreLabel(cl, second, secondStart, secondEnd));
+    return copyCoreLabel(cl, first, cl.beginPosition(), secondStart);
   }
 
   /**
@@ -181,14 +198,24 @@ public class SpanishTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
    */
   private CoreLabel processVerb(CoreLabel cl) {
     cl.remove(ParentAnnotation.class);
-    Pair<String, List<String>> parts = verbStripper.separatePronouns(cl.word());
-    if (parts == null) {
+    SpanishVerbStripper.StrippedVerb stripped = verbStripper.separatePronouns(cl.word());
+    if (stripped == null) {
       return cl;
     }
-    for (String pronoun : parts.second()) {
-      compoundBuffer.add(copyCoreLabel(cl, pronoun));
+
+    // Split the CoreLabel into separate labels, tracking changing begin + end
+    // positions.
+    int stemEnd = cl.beginPosition() + stripped.getOriginalStem().length();
+    int lengthRemoved = 0;
+    for (String pronoun : stripped.getPronouns()) {
+      int beginOffset = stemEnd + lengthRemoved;
+      compoundBuffer.add(copyCoreLabel(cl, pronoun, beginOffset));
+      lengthRemoved += pronoun.length();
     }
-    return copyCoreLabel(cl, parts.first());
+
+    CoreLabel stem = copyCoreLabel(cl, stripped.getStem(), cl.beginPosition(), stemEnd);
+    stem.setOriginalText(stripped.getOriginalStem());
+    return stem;
   }
 
   private static final Pattern pDash = Pattern.compile("\\-");
@@ -199,13 +226,19 @@ public class SpanishTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
    */
   private CoreLabel processCompound(CoreLabel cl) {
     cl.remove(ParentAnnotation.class);
+
     String[] parts = pSpace.split(pDash.matcher(cl.word()).replaceAll(" - "));
+    int lengthAccum = 0;
     for (String part : parts) {
       CoreLabel newLabel = new CoreLabel(cl);
       newLabel.setWord(part);
       newLabel.setValue(part);
+      newLabel.setBeginPosition(cl.beginPosition() + lengthAccum);
+      newLabel.setEndPosition(cl.beginPosition() + lengthAccum + part.length());
       newLabel.set(OriginalTextAnnotation.class, part);
       compoundBuffer.add(newLabel);
+
+      lengthAccum += part.length();
     }
     return compoundBuffer.remove(0);
   }
@@ -437,32 +470,36 @@ public class SpanishTokenizer<T extends HasWord> extends AbstractTokenizer<T>  {
     int nTokens = 0;
     final long startTime = System.nanoTime();
     try {
-      Tokenizer<CoreLabel> tokenizer = tf.getTokenizer(new InputStreamReader(System.in, encoding));
+      Tokenizer<CoreLabel> tokenizer = tf.getTokenizer(new BufferedReader(new InputStreamReader(System.in, encoding)));
+      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out, encoding));
       boolean printSpace = false;
       while (tokenizer.hasNext()) {
         ++nTokens;
         String word = tokenizer.next().word();
         if (word.equals(SpanishLexer.NEWLINE_TOKEN)) {
           ++nLines;
-          System.out.println();
           if ( ! onePerLine) {
+            writer.newLine();
             printSpace = false;
           }
         } else {
           String outputToken = toLower ? word.toLowerCase(es) : word;
           if (onePerLine) {
-            System.out.println(outputToken);
+            writer.write(outputToken);
+            writer.newLine();
           } else {
             if (printSpace) {
-              System.out.print(" ");
+              writer.write(" ");
             }
-            System.out.print(outputToken);
+            writer.write(outputToken);
             printSpace = true;
           }
         }
       }
     } catch (UnsupportedEncodingException e) {
       throw new RuntimeIOException("Bad character encoding", e);
+    } catch (IOException e) {
+      throw new RuntimeIOException(e);
     }
     long elapsedTime = System.nanoTime() - startTime;
     double linesPerSec = (double) nLines / (elapsedTime / 1e9);
